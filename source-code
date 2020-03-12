@@ -1,0 +1,184 @@
+from gtts import gTTS
+import speech_recognition as sr
+import os
+import webbrowser
+import playsound
+#import smtplib
+from datetime import date
+from datetime import datetime
+import datetime
+import requests
+from pprint import pprint
+import pyowm
+from bs4 import BeautifulSoup
+from mutagen.mp3 import MP3
+import time 
+
+#############FUNCTIONS#################
+
+######LISTEN AND TALK#########
+
+####to talk####
+
+def talkToMe(audio):
+     print(audio)
+     tts = gTTS(text=audio,lang='en')
+     tts.save('audio.mp3')
+     playsound.playsound('audio.mp3',False)
+     wait('audio.mp3')
+     print('...')
+     os.remove('audio.mp3')
+
+###(on hold)speak in other languages###
+#def talkToMeCN(audio):
+ #    print(audio)
+  #   tts = gTTS(text=audio,lang='zh-cn')
+   #  tts.save('audioCN.mp3')
+    # os.system('audioCN.mp3')
+
+####to listen ####
+ 
+def myCommand():
+
+    r=sr.Recognizer()
+
+    with sr.Microphone() as source:
+        print('-->')
+        r.pause_threshold = 1
+        r.adjust_for_ambient_noise(source,duration =0.7)
+        audio = r.listen(source)
+
+    try:
+        command = r.recognize_google(audio)
+        print('You said: ' + command )
+
+    #loop back to continue to listen for commands
+
+    except sr.UnknownValueError:
+        assistant(myCommand())
+
+    return command
+
+####to understand ####
+
+def assistant(command):
+        
+     if 'awake' or 'morning' in command:
+          morninggreeting()
+          speakOfWeather()
+          print('speakOfWeather()')        
+     elif 'weather' in command:
+          speakOfWeather()
+     else:
+          talktoToMe('Sorry, I do not understand this.')
+
+
+     #switcher = {
+      #    'awake': morninggreeting(),
+       #   'weather': speakOfWeather()}
+     #return switcher.get(command, 'I don"t understand')
+          
+
+#####situations#####
+
+###greeting###
+
+def morninggreeting():
+     td = today()
+     rp = 'Good morning! Today is '+td
+     talkToMe(rp)
+     speakOfWeather()
+
+###weather###
+     
+def getMyWeather():
+
+    owm = pyowm.OWM('6e0f0ffa4cb8f1558a41c2b5e0c1c3d2')
+    #enter your city
+    observation = owm.weather_at_place('Boston, US')
+    weather = observation.get_weather()
+    #print(weather.get_temperature('celsius')['temp'])
+    return weather
+
+
+def speakOfWeather():
+     line1 = 'The temperature in your city is currently '+ str(getMyWeather().get_temperature('celsius')['temp']) +' celcius. '
+     line2 = 'Do you want any recommendation on clothing?'
+     talkToMe(line1+line2)
+
+     #print('yescommand = myCommand()')
+     yescommand = myCommand()
+
+     if 'no' in yescommand:
+          #print('beenRejected()')
+          beenRejected()
+     else:
+          #print('speakOfClothes(yescommand)')
+          speakOfClothes(yescommand)
+    
+
+def getMyClothes():
+
+    page_link = 'https://www.liveabout.com/winter-fashion-31-street-style-outfits-to-wear-this-winter-4114783'
+    page_response = requests.get(page_link, timeout=5)
+    page_content = BeautifulSoup(page_response.content, "html.parser")
+    textContent = []
+    for i in range(0, 20):
+        paragraphs = page_content.find_all("p")[i].text
+        textContent.append(paragraphs)
+    return paragraphs
+
+def speakOfClothes(words):
+     clothrecomm = 'Wonderful. How about this? ' + getMyClothes()
+     talkToMe(clothrecomm)
+
+def beenRejected():
+     talkToMe('Okay, let me know when you need that.')
+###CARE###
+
+def timeForBed():
+     now = datetime.datetime.now()
+     now = datetime.time(now.hour,now.minute,now.second)
+     lateNightStart = datetime.time(0,0,0)
+     lateNightEnd = datetime.time(6,0,0)
+     return time_in_range(lateNightStart,lateNightEnd,now)
+     
+     
+###today's date###
+
+def today():
+     now = datetime.now()
+     year = now.strftime("%Y")
+     month = now.strftime("%B")
+     day = now.strftime("%d")
+     line = year + " year "+ month +" "+ day
+     return line
+
+
+def time_in_range(start, end, x):
+    """Return true if x is in the range [start, end]"""
+    if start <= end:
+        return start <= x <= end
+    else:
+        return start <= x or x <= end
+     #https://stackoverflow.com/questions/10747974/how-to-check-if-the-current-time-is-in-range-in-python#
+
+def wait(lucyspeaking):
+     audio = MP3(lucyspeaking)
+     seconds=round(audio.info.length+1)
+     time.sleep(seconds)
+     ##mutegen package##
+     
+###################### PROGRAM ##########################################
+def main():
+
+     
+     talkToMe('Hi, I am Lucy. ')
+     if timeForBed():
+          talkToMe('It is time for bed now.')
+     assistant(myCommand())
+
+
+
+main()
+
